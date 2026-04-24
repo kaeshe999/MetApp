@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isEditor() {
+      return isSignedIn() && getUserData().role in ['admin', 'editor'];
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'admin';
+    }
+
+    // Users — solo el admin gestiona usuarios
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // Clubs — lectura publica, escritura solo admin
+    match /clubs/{clubId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      // Seasons — lectura publica, escritura solo admin
+      match /seasons/{seasonId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+
+      // Players — lectura publica, escritura solo editor o admin
+      match /players/{playerId} {
+        allow read: if true;
+        allow write: if isEditor();
+      }
+
+      // Matches — lectura publica, escritura solo editor o admin
+      match /matches/{matchId} {
+        allow read: if true;
+        allow write: if isEditor();
+      }
+
+      // News — lectura publica (solo publicadas), escritura solo editor o admin
+      match /news/{newsId} {
+        allow read: if true;
+        allow write: if isEditor();
+      }
+
+      // Standings — lectura publica, escritura solo editor o admin
+      match /standings/{seasonId} {
+        allow read: if true;
+        allow write: if isEditor();
+      }
+    }
+  }
+}
